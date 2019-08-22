@@ -13,6 +13,12 @@ class CPU:
         self.pc = 0
         self.ir = None
         self.fl = 0b00000000
+        self.ops = {
+            0b10000010: 'LDI',
+            0b01000111: 'PRN',
+            0b101000: 'ADD',
+            0b10100010: "MUL"
+        }
 
     def load(self, file):
         """Load a program into memory."""
@@ -34,6 +40,9 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
+        elif op == "MUL":
+            self.reg[reg_a] = self.reg[reg_a] * self.reg[reg_b]
+
         # elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
@@ -61,8 +70,6 @@ class CPU:
     def run(self):
         """Run the CPU."""
         HLT = 0b00000001
-        LDI = 0b10000010
-        PRN = 0b01000111
 
         running = True
         while running:
@@ -72,14 +79,30 @@ class CPU:
 
             if cmd == HLT:
                 running = False
-            if cmd == LDI:
-                self.reg[param1] = param2
-                self.pc += 3
-            if cmd == PRN:
-                print(self.reg[param1])
-                self.pc += 2
+            elif cmd in self.ops:
+                self.ops[cmd](param1, param2)
+            else:
+                print('Command not found: re-enter')
+                running = False
 
         self.trace()
+
+    def HLT(self):
+        exit()
+
+    def LDI(self, param1, param2):
+        self.reg[param1] = param2
+        self.pc += 3
+
+    def PRN(self, param1):
+        print(self.reg[param1])
+        self.pc += 2
+
+    def ADD(self, param1, param2):
+        self.alu('ADD', param1, param2)
+    
+    def MUL(self, param1, param2):
+        self.alu('MUL', param1, param2)
 
     def ram_read(self, mar):
         return self.ram[mar]
