@@ -14,10 +14,13 @@ class CPU:
         self.ir = None
         self.fl = 0b00000000
         self.ops = {
-            0b10000010: 'LDI',
-            0b01000111: 'PRN',
-            0b101000: 'ADD',
-            0b10100010: "MUL"
+            0b10000010: self.LDI,
+            0b01000111: self.PRN,
+            0b10100000: "ADD",
+            0b10100010: "MUL",
+            0b10100001: "SUB",
+            0b10100011: "DIV",
+            0b10100100: "MOD",
         }
 
     def load(self, file):
@@ -42,6 +45,7 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         elif op == "MUL":
             self.reg[reg_a] = self.reg[reg_a] * self.reg[reg_b]
+
 
         # elif op == "SUB": etc
         else:
@@ -76,36 +80,29 @@ class CPU:
             cmd = self.ram_read(self.pc)
             param1 = self.ram_read(self.pc + 1)
             param2 = self.ram_read(self.pc + 2)
+            num_p = 1 + (cmd >> 6)
 
             if cmd == HLT:
                 running = False
+            elif bin((cmd >> 5) & 0b00000001) == '0b1':
+                self.alu(self.ops[cmd], param1, param2)
+                self.pc += num_p
             elif cmd in self.ops:
                 self.ops[cmd](param1, param2)
+                self.pc += num_p
             else:
                 print('Command not found: re-enter')
                 running = False
-
-        self.trace()
-
-    def HLT(self):
-        exit()
-
-    def LDI(self, param1, param2):
-        self.reg[param1] = param2
-        self.pc += 3
-
-    def PRN(self, param1):
-        print(self.reg[param1])
-        self.pc += 2
-
-    def ADD(self, param1, param2):
-        self.alu('ADD', param1, param2)
-    
-    def MUL(self, param1, param2):
-        self.alu('MUL', param1, param2)
 
     def ram_read(self, mar):
         return self.ram[mar]
 
     def ram_write(self, mar, mdr):
         self.ram[mar] = mdr
+
+    def LDI(self, param1, param2):
+        self.reg[param1] = param2
+
+    def PRN(self, param1, param2):
+        print(self.reg[param1])
+
