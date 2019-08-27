@@ -9,6 +9,7 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.reg = [0] * 8
+        self.reg[7] = int('F3', 16)
         self.ram = [0] * 25
         self.pc = 0
         self.ir = None
@@ -16,6 +17,8 @@ class CPU:
         self.ops = {
             0b10000010: self.LDI,
             0b01000111: self.PRN,
+            0b01000101: self.PUSH,
+            0b01000110: self.POP,
             0b10100000: "ADD",
             0b10100010: "MUL",
             0b10100001: "SUB",
@@ -80,16 +83,23 @@ class CPU:
             cmd = self.ram_read(self.pc)
             param1 = self.ram_read(self.pc + 1)
             param2 = self.ram_read(self.pc + 2)
-            num_p = 1 + (cmd >> 6)
+            num_p = (cmd >> 6)
+
+            print(num_p)
 
             if cmd == HLT:
                 running = False
             elif bin((cmd >> 5) & 0b00000001) == '0b1':
                 self.alu(self.ops[cmd], param1, param2)
-                self.pc += num_p
+                self.pc += num_p + 1
             elif cmd in self.ops:
-                self.ops[cmd](param1, param2)
-                self.pc += num_p
+                if num_p == 2:
+                    self.ops[cmd](param1, param2)
+                elif num_p == 1:
+                    self.ops[cmd](param1)
+                else:
+                    self.ops[cmd]()
+                self.pc += num_p + 1
             else:
                 print('Command not found: re-enter')
                 running = False
@@ -104,5 +114,11 @@ class CPU:
         self.reg[param1] = param2
 
     def PRN(self, param1, param2):
+        print(self.reg[param1])
+
+    def PUSH(self, param1, param2):
+        print(self.reg[param1])
+
+    def POP(self, param1, param2):
         print(self.reg[param1])
 
