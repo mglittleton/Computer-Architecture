@@ -10,7 +10,7 @@ class CPU:
         """Construct a new CPU."""
         self.reg = [0] * 8
         self.reg[7] = int('F3', 16)
-        self.ram = [0] * 25
+        self.ram = [0] * 256
         self.pc = 0
         self.ir = None
         self.fl = 0b00000000
@@ -114,9 +114,16 @@ class CPU:
     def PRN(self, param1):
         print(self.reg[param1])
 
-    def PUSH(self, param1, param2):
-        print(self.reg[param1])
+    def PUSH(self, param1):
+        self.reg[7] = (self.reg[7] - 1) % 255
+        SP = self.reg[7]
+        val = self.reg[param1]
+        self.ram_write(SP, val)
 
-    def POP(self, param1, param2):
-        print(self.reg[param1])
+
+    def POP(self, param1):
+        SP = self.reg[7]
+        self.reg[7] = (self.reg[7] + 1) % 255
+        val = self.ram_read(SP)
+        self.reg[param1] = val
 
