@@ -85,8 +85,6 @@ class CPU:
             param2 = self.ram_read(self.pc + 2)
             num_p = (cmd >> 6)
 
-            print(num_p)
-
             if cmd == HLT:
                 running = False
             elif bin((cmd >> 5) & 0b00000001) == '0b1':
@@ -113,7 +111,7 @@ class CPU:
     def LDI(self, param1, param2):
         self.reg[param1] = param2
 
-    def PRN(self, param1, param2):
+    def PRN(self, param1):
         print(self.reg[param1])
 
     def PUSH(self, param1, param2):
