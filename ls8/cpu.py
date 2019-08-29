@@ -26,7 +26,8 @@ class CPU:
             0b10100100: "MOD",
             0b01010000: self.CALL,
             0b00010001: self.RET,
-            0b01010100: self.JMP
+            0b01010100: self.JMP,
+            0b10000100: self.ST
         }
 
     def load(self, file):
@@ -149,4 +150,7 @@ class CPU:
     def JMP(self, reg_loc):
         self.PC = self.reg[reg_loc]
 
-
+    def ST(self, addr_loc, val_loc):
+        addr = self.reg[addr_loc]
+        val = self.reg[val_loc]
+        self.ram_write(addr, val)
