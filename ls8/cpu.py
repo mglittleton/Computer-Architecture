@@ -13,7 +13,7 @@ class CPU:
         self.ram = [0] * 256
         self.PC = 0
         self.IR = None
-        self.FL = 0
+        self.FL = 0b00000000
         self.ops = {
             0b10000010: self.LDI,
             0b01000111: self.PRN,
@@ -148,7 +148,8 @@ class CPU:
         self.PC = self.ram_read(SP)
 
     def JMP(self, reg_loc):
-        self.PC = self.reg[reg_loc]
+        if (self.FL >> 7) == 0: 
+            self.PC = self.reg[reg_loc]
 
     def ST(self, addr_loc, val_loc):
         addr = self.reg[addr_loc]
