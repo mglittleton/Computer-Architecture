@@ -11,9 +11,9 @@ class CPU:
         self.reg = [0] * 8
         self.reg[7] = int('F3', 16)
         self.ram = [0] * 256
-        self.pc = 0
-        self.ir = None
-        self.fl = 0b00000000
+        self.PC = 0
+        self.IR = None
+        self.FL = 0
         self.ops = {
             0b10000010: self.LDI,
             0b01000111: self.PRN,
@@ -24,6 +24,9 @@ class CPU:
             0b10100001: "SUB",
             0b10100011: "DIV",
             0b10100100: "MOD",
+            0b01010000: self.CALL,
+            0b00010001: self.RET,
+            0b01010100: self.JMP
         }
 
     def load(self, file):
@@ -61,12 +64,12 @@ class CPU:
         """
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
-            self.pc,
-            # self.fl,
-            # self.ir,
-            self.ram_read(self.pc),
-            self.ram_read(self.pc + 1),
-            self.ram_read(self.pc + 2)
+            self.PC,
+            # self.FL,
+            # self.IR,
+            self.ram_read(self.PC),
+            self.ram_read(self.PC + 1),
+            self.ram_read(self.PC + 2)
         ), end='')
 
         for i in range(8):
@@ -80,16 +83,21 @@ class CPU:
 
         running = True
         while running:
-            cmd = self.ram_read(self.pc)
-            param1 = self.ram_read(self.pc + 1)
-            param2 = self.ram_read(self.pc + 2)
+            cmd = self.ram_read(self.PC)
+            param1 = self.ram_read(self.PC + 1)
+            param2 = self.ram_read(self.PC + 2)
             num_p = (cmd >> 6)
 
             if cmd == HLT:
                 running = False
             elif bin((cmd >> 5) & 0b00000001) == '0b1':
                 self.alu(self.ops[cmd], param1, param2)
-                self.pc += num_p + 1
+                self.PC += num_p + 1
+            elif bin((cmd >> 4) & 0b00000001) == '0b1':
+                if num_p == 1:
+                    self.ops[cmd](param1)
+                else: 
+                    self.ops[cmd]()
             elif cmd in self.ops:
                 if num_p == 2:
                     self.ops[cmd](param1, param2)
@@ -97,7 +105,7 @@ class CPU:
                     self.ops[cmd](param1)
                 else:
                     self.ops[cmd]()
-                self.pc += num_p + 1
+                self.PC += num_p + 1
             else:
                 print('Command not found: re-enter')
                 running = False
@@ -108,22 +116,37 @@ class CPU:
     def ram_write(self, mar, mdr):
         self.ram[mar] = mdr
 
-    def LDI(self, param1, param2):
-        self.reg[param1] = param2
+    def LDI(self, reg_loc, val):
+        self.reg[reg_loc] = val
 
-    def PRN(self, param1):
-        print(self.reg[param1])
+    def PRN(self, reg_loc):
+        print(self.reg[reg_loc])
 
-    def PUSH(self, param1):
+    def PUSH(self, reg_loc):
         self.reg[7] = (self.reg[7] - 1) % 255
         SP = self.reg[7]
-        val = self.reg[param1]
+        val = self.reg[reg_loc]
         self.ram_write(SP, val)
 
-
-    def POP(self, param1):
+    def POP(self, reg_loc):
         SP = self.reg[7]
         self.reg[7] = (self.reg[7] + 1) % 255
         val = self.ram_read(SP)
-        self.reg[param1] = val
+        self.reg[reg_loc] = val
+
+    def CALL(self, reg_loc):
+        self.reg[7] = (self.reg[7] - 1) % 255
+        SP = self.reg[7]
+        val = self.PC + 2
+        self.PC = self.reg[reg_loc]
+        self.ram_write(SP, val)
+
+    def RET(self):
+        SP = self.reg[7]
+        self.reg[7] = (self.reg[7] + 1) % 255
+        self.PC = self.ram_read(SP)
+
+    def JMP(self, reg_loc):
+        self.PC = self.reg[reg_loc]
+
 
