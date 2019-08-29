@@ -24,6 +24,8 @@ class CPU:
             0b10100001: "SUB",
             0b10100011: "DIV",
             0b10100100: "MOD",
+            0b01010100: self.JMP,
+            0b01010000: self.CALL
         }
 
     def load(self, file):
@@ -48,7 +50,6 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         elif op == "MUL":
             self.reg[reg_a] = self.reg[reg_a] * self.reg[reg_b]
-
 
         # elif op == "SUB": etc
         else:
@@ -90,6 +91,8 @@ class CPU:
             elif bin((cmd >> 5) & 0b00000001) == '0b1':
                 self.alu(self.ops[cmd], param1, param2)
                 self.pc += num_p + 1
+            elif bin((cmd >> 5) & 0b00000001) == '0b1':
+                self.ops[cmd](param1)
             elif cmd in self.ops:
                 if num_p == 2:
                     self.ops[cmd](param1, param2)
@@ -108,22 +111,34 @@ class CPU:
     def ram_write(self, mar, mdr):
         self.ram[mar] = mdr
 
-    def LDI(self, param1, param2):
-        self.reg[param1] = param2
+    def LDI(self, reg_loc, val):
+        self.reg[reg_loc] = val
 
-    def PRN(self, param1):
-        print(self.reg[param1])
+    def PRN(self, reg_loc):
+        print(self.reg[reg_loc])
 
-    def PUSH(self, param1):
+    def PUSH(self, reg_loc):
         self.reg[7] = (self.reg[7] - 1) % 255
         SP = self.reg[7]
-        val = self.reg[param1]
+        val = self.reg[reg_loc]
         self.ram_write(SP, val)
 
-
-    def POP(self, param1):
+    def POP(self, reg_loc):
         SP = self.reg[7]
         self.reg[7] = (self.reg[7] + 1) % 255
         val = self.ram_read(SP)
-        self.reg[param1] = val
+        self.reg[reg_loc] = val
+
+    def JMP(self, reg_loc):
+        self.pc = self.reg[reg_loc]
+
+    def CALL(self, reg_loc):
+        tmp = self.reg[reg_loc]
+        self.LDI(reg_loc, self.pc + 2)
+        self.PUSH(reg_loc)
+        self.LDI(reg_loc, tmp)
+        self.JMP(reg_loc)
+
+    def RET(self):
+        
 
