@@ -1,6 +1,7 @@
 """CPU functionality."""
 
 import sys
+import datetime
 
 
 class CPU:
@@ -9,11 +10,13 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.reg = [0] * 8
-        self.reg[7] = int('F3', 16)
+        self.reg[7] = 0xF4
         self.ram = [0] * 256
         self.PC = 0
+        self.IS = 0b00000000
         self.IR = None
         self.FL = 0b00000000
+        self.date = None
         self.ops = {
             0b10000010: self.LDI,
             0b01000111: self.PRN,
@@ -27,7 +30,8 @@ class CPU:
             0b01010000: self.CALL,
             0b00010001: self.RET,
             0b01010100: self.JMP,
-            0b10000100: self.ST
+            0b10000100: self.ST,
+            0b00010011: self.IRET
         }
 
     def load(self, file):
@@ -84,6 +88,17 @@ class CPU:
 
         running = True
         while running:
+            now = datetime.datetime.now()
+            if now <= (self.date + 1000):
+                for i in range(7):
+                    self.PUSH(i)
+                self.reg[0] = self.FL
+                self.PUSH(0)
+                self.reg[1] = self.PC
+                self.PUSH(1)
+
+                self.JMP(self.reg[1])
+
             cmd = self.ram_read(self.PC)
             param1 = self.ram_read(self.PC + 1)
             param2 = self.ram_read(self.PC + 2)
@@ -124,19 +139,19 @@ class CPU:
         print(self.reg[reg_loc])
 
     def PUSH(self, reg_loc):
-        self.reg[7] = (self.reg[7] - 1) % 255
+        self.reg[7] = (self.reg[7] - 1) % 244
         SP = self.reg[7]
         val = self.reg[reg_loc]
         self.ram_write(SP, val)
 
     def POP(self, reg_loc):
         SP = self.reg[7]
-        self.reg[7] = (self.reg[7] + 1) % 255
+        self.reg[7] = (self.reg[7] + 1) % 244
         val = self.ram_read(SP)
         self.reg[reg_loc] = val
 
     def CALL(self, reg_loc):
-        self.reg[7] = (self.reg[7] - 1) % 255
+        self.reg[7] = (self.reg[7] - 1) % 244
         SP = self.reg[7]
         val = self.PC + 2
         self.PC = self.reg[reg_loc]
@@ -144,7 +159,7 @@ class CPU:
 
     def RET(self):
         SP = self.reg[7]
-        self.reg[7] = (self.reg[7] + 1) % 255
+        self.reg[7] = (self.reg[7] + 1) % 244
         self.PC = self.ram_read(SP)
 
     def JMP(self, reg_loc):
@@ -155,3 +170,18 @@ class CPU:
         addr = self.reg[addr_loc]
         val = self.reg[val_loc]
         self.ram_write(addr, val)
+
+    def IRET(self):
+        SP = self.reg[7]
+        self.reg[7] = (self.reg[7] + 9) % 244
+        for i in range(7):
+            self.reg[6 - i] = self.ram[SP + i]
+        self.FL = self.ram[SP + 7]
+        self.PC = self.ram[SP + 8]
+        self.IS = 0b00000000
+
+    def PRA(self, reg_loc):
+        char = chr(self.reg[reg_loc])
+        print(char)
+
+
