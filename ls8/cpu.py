@@ -1,42 +1,63 @@
 """CPU functionality."""
 
 import sys
+import datetime
+
 
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.reg = [0] * 8
+        self.reg[7] = 0xF4
+        self.ram = [0] * 256
+        self.PC = 0
+        self.IS = 0b00000000
+        self.IR = None
+        self.FL = 0b00000000
+        self.date = None
+        self.ops = {
+            0b10000010: self.LDI,
+            0b01000111: self.PRN,
+            0b01000101: self.PUSH,
+            0b01000110: self.POP,
+            0b10100000: "ADD",
+            0b10100010: "MUL",
+            0b10100001: "SUB",
+            0b10100011: "DIV",
+            0b10100100: "MOD",
+            0b01010000: self.CALL,
+            0b00010001: self.RET,
+            0b01010100: self.JMP,
+            0b10000100: self.ST,
+            0b00010011: self.IRET
+        }
 
-    def load(self):
+    def load(self, file):
         """Load a program into memory."""
+
+        # convert file into list of binary codes and enter into ram below
+        file_lines = open(file, 'r')
+        program = file_lines.readlines()
 
         address = 0
 
-        # For now, we've just hardcoded a program:
-
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
-
         for instruction in program:
-            self.ram[address] = instruction
-            address += 1
-
+            letter1 = instruction[0]
+            if letter1 == '0' or letter1 == '1':
+                self.ram_write(address, int(instruction[:8], 2))
+                address += 1
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "MUL":
+            self.reg[reg_a] = self.reg[reg_a] * self.reg[reg_b]
+
+        # elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -47,12 +68,12 @@ class CPU:
         """
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
-            self.pc,
-            #self.fl,
-            #self.ie,
-            self.ram_read(self.pc),
-            self.ram_read(self.pc + 1),
-            self.ram_read(self.pc + 2)
+            self.PC,
+            # self.FL,
+            # self.IR,
+            self.ram_read(self.PC),
+            self.ram_read(self.PC + 1),
+            self.ram_read(self.PC + 2)
         ), end='')
 
         for i in range(8):
@@ -62,4 +83,104 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        HLT = 0b00000001
+
+        running = True
+        while running:
+            now = datetime.datetime.now()
+            if now <= (self.date + 1000):
+                for i in range(7):
+                    self.PUSH(i)
+                self.reg[0] = self.FL
+                self.PUSH(0)
+                self.reg[1] = self.PC
+                self.PUSH(1)
+
+                self.JMP(self.reg[1])
+
+            cmd = self.ram_read(self.PC)
+            param1 = self.ram_read(self.PC + 1)
+            param2 = self.ram_read(self.PC + 2)
+            num_p = (cmd >> 6)
+
+            if cmd == HLT:
+                running = False
+            elif bin((cmd >> 5) & 0b00000001) == '0b1':
+                self.alu(self.ops[cmd], param1, param2)
+                self.PC += num_p + 1
+            elif bin((cmd >> 4) & 0b00000001) == '0b1':
+                if num_p == 1:
+                    self.ops[cmd](param1)
+                else:
+                    self.ops[cmd]()
+            elif cmd in self.ops:
+                if num_p == 2:
+                    self.ops[cmd](param1, param2)
+                elif num_p == 1:
+                    self.ops[cmd](param1)
+                else:
+                    self.ops[cmd]()
+                self.PC += num_p + 1
+            else:
+                print('Command not found: re-enter')
+                running = False
+
+    def ram_read(self, mar):
+        return self.ram[mar]
+
+    def ram_write(self, mar, mdr):
+        self.ram[mar] = mdr
+
+    def LDI(self, reg_loc, val):
+        self.reg[reg_loc] = val
+
+    def PRN(self, reg_loc):
+        print(self.reg[reg_loc])
+
+    def PUSH(self, reg_loc):
+        self.reg[7] = (self.reg[7] - 1) % 244
+        SP = self.reg[7]
+        val = self.reg[reg_loc]
+        self.ram_write(SP, val)
+
+    def POP(self, reg_loc):
+        SP = self.reg[7]
+        self.reg[7] = (self.reg[7] + 1) % 244
+        val = self.ram_read(SP)
+        self.reg[reg_loc] = val
+
+    def CALL(self, reg_loc):
+        self.reg[7] = (self.reg[7] - 1) % 244
+        SP = self.reg[7]
+        val = self.PC + 2
+        self.PC = self.reg[reg_loc]
+        self.ram_write(SP, val)
+
+    def RET(self):
+        SP = self.reg[7]
+        self.reg[7] = (self.reg[7] + 1) % 244
+        self.PC = self.ram_read(SP)
+
+    def JMP(self, reg_loc):
+        if (self.FL >> 7) == 0:
+            self.PC = self.reg[reg_loc]
+
+    def ST(self, addr_loc, val_loc):
+        addr = self.reg[addr_loc]
+        val = self.reg[val_loc]
+        self.ram_write(addr, val)
+
+    def IRET(self):
+        SP = self.reg[7]
+        self.reg[7] = (self.reg[7] + 9) % 244
+        for i in range(7):
+            self.reg[6 - i] = self.ram[SP + i]
+        self.FL = self.ram[SP + 7]
+        self.PC = self.ram[SP + 8]
+        self.IS = 0b00000000
+
+    def PRA(self, reg_loc):
+        char = chr(self.reg[reg_loc])
+        print(char)
+
+
